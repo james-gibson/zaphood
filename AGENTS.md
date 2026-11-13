@@ -16,6 +16,16 @@ The rules are the upstream's — `https://james-gibson.github.io/le.gume/rules.m
 `upstream/overrides.md` with a rule id and a reason; the guard refuses an unknown id or an override
 with no reason.
 
+## Protected pages
+
+- `private/pages/*.md` is the plaintext. It is outside `src/`, so the app cannot import it.
+- `scripts/protected-manifest.mjs` publishes titles and descriptions to `protected/manifest.json`;
+  `scripts/protect.mjs` seals the bodies into `dist/protected/<slug>.json`.
+- The build encrypts with `keys/zb-public.pem`. Decryption happens only in the browser, with the
+  private key from the release. There is no server-side decrypt path, by definition.
+- `scripts/verify-publish.mjs` fails if a protected body line appears anywhere in `dist/`, or if the
+  manifest and the plaintext disagree. Do not weaken that check.
+
 ## Ship improvements back
 
 When you build something this seed does not have, consider packaging it as an isotope and proposing

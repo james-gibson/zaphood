@@ -24,6 +24,8 @@ const walk = async (dir) => {
 const readText = (file) => readFile(file, 'utf8').catch(() => '')
 const files = await walk(DIST)
 const rel = files.map((file) => relative(DIST, file))
+const protectedPages = JSON.parse((await readText('protected/manifest.json')) || '{"pages":[]}').pages
+const protectedRoutes = ['protected', ...protectedPages.map((page) => `protected/${page.slug}`)]
 
 // 1. base path agrees with package.json homepage
 const pkg = JSON.parse(await readText('package.json'))
@@ -52,6 +54,7 @@ const contentFiles = (await walk('src/content')).filter((file) => file.endsWith(
 const routes = [
   ...new Set(contentFiles.map((file) => relative('src/content', file).split('/')[0])),
   ...contentFiles.map((file) => relative('src/content', file).replace(/\.md$/, '')),
+  ...protectedRoutes,
 ]
 for (const route of routes) {
   try {
@@ -111,7 +114,50 @@ if (!rules) {
   if (!(await readText(join(DIST, 'rules.md')))) fail('rules', 'dist/rules.md is not published')
 }
 
-// 7. size sanity
+// 7. protected pages are sealed, and their plaintext is nowhere in the build
+const privateDir = 'private/pages'
+const privateFiles = (await walk(privateDir)).filter((file) => file.endsWith('.md'))
+const slugOf = (file) => relative(privateDir, file).replace(/\.md$/, '')
+const manifestSlugs = protectedPages.map((page) => page.slug).sort()
+const sourceSlugs = privateFiles.map(slugOf).sort()
+if (manifestSlugs.join() !== sourceSlugs.join()) {
+  fail('protected', 'protected/manifest.json does not match private/pages/ — run node scripts/protected-manifest.mjs')
+}
+if (!(await readText('keys/zb-public.pem')).includes('BEGIN PUBLIC KEY')) {
+  fail('protected', 'keys/zb-public.pem is missing')
+}
+for (const page of protectedPages) {
+  const source = await readText(join(privateDir, `${page.slug}.md`))
+  const title = /^title:\s*(.+)$/m.exec(source)?.[1]?.trim().replace(/^["']|["']$/g, '')
+  if (title !== page.title) fail('protected', `manifest title for ${page.slug} does not match its source`)
+  if (!(await readText(join(DIST, 'protected', `${page.slug}.json`)))) {
+    fail('protected', `dist/protected/${page.slug}.json is missing — run node scripts/protect.mjs`)
+  }
+}
+
+const builtText = (
+  await Promise.all(
+    rel
+      .filter((file) => /\.(?:html|js|json|txt|xml)$/.test(file))
+      .map((file) => readText(join(DIST, file))),
+  )
+).join('\n')
+for (const file of privateFiles) {
+  const source = await readText(file)
+  const body = source.replace(/^---[\s\S]*?---\r?\n/, '')
+  const sample = body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 40 && !line.startsWith('-'))
+    .slice(0, 3)
+  for (const line of sample) {
+    if (builtText.includes(line)) {
+      fail('protected', `${file} leaks plaintext into the build: "${line.slice(0, 48)}…"`)
+    }
+  }
+}
+
+// 8. size sanity
 const total = (await Promise.all(files.map(async (file) => (await stat(file)).size))).reduce((a, b) => a + b, 0)
 if (total > 8 * 1024 * 1024) fail('size', `dist/ is ${(total / 1024 / 1024).toFixed(1)}MB, over 8MB`)
 notes.push(`${rel.length} files, ${(total / 1024).toFixed(0)}KB total`)

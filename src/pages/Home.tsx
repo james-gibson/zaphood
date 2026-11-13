@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { pagesIn } from '@/lib/content'
+import { PROTECTED, protectedRoute } from '@/lib/protected'
 import { href } from '@/lib/base'
 
 export function Home() {
@@ -64,6 +65,26 @@ export function Home() {
           <p className="text-sm">
             <a href={href('/awards/awards')}>All {awards.length} award page</a>
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>PROTECTED PAGES</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p>
+            {PROTECTED.length} pages are encrypted with Z.B.&rsquo;s public key. You will need
+            JavaScript and the key from the release. The release is private because it is called a
+            release.
+          </p>
+          <ul className="space-y-1">
+            {PROTECTED.map((page) => (
+              <li key={page.slug}>
+                🔒 <a href={href(protectedRoute(page.slug))}>{page.title}</a> — {page.description}
+              </li>
+            ))}
+          </ul>
         </CardContent>
       </Card>
 

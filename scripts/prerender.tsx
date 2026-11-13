@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { renderToString } from 'react-dom/server'
 import { App } from '../src/App'
 import { PAGES, SECTIONS } from '../src/lib/content'
+import { PROTECTED } from '../src/lib/protected'
 
 const OUT = 'dist/.prerender'
 
@@ -18,6 +19,8 @@ const routes = [
     key: `${page.section}/${page.slug}`.replace(/\//g, '__'),
     path: `/${page.section}/${page.slug}`,
   })),
+  { key: 'protected', path: '/protected' },
+  ...PROTECTED.map((page) => ({ key: `protected__${page.slug}`, path: `/protected/${page.slug}` })),
   { key: '404', path: '/this-route-does-not-exist' },
 ]
 

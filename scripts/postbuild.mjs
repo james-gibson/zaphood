@@ -44,7 +44,11 @@ const pages = await Promise.all(
   }),
 )
 
-const routes = [...sections, ...pages.map((page) => page.route)]
+const protectedPages = JSON.parse(
+  await readFile('protected/manifest.json', 'utf8').catch(() => '{"pages":[]}'),
+).pages
+const protectedRoutes = ['protected', ...protectedPages.map((page) => `protected/${page.slug}`)]
+const routes = [...sections, ...pages.map((page) => page.route), ...protectedRoutes]
 const template = await readFile(index, 'utf8')
 const PRERENDER = join(DIST, '.prerender')
 const markup = new Map()
@@ -67,7 +71,10 @@ const shell = (key, title) => {
 for (const route of routes) {
   const dir = join(DIST, route)
   await mkdir(dir, { recursive: true })
-  const title = pages.find((page) => page.route === route)?.title ?? route.charAt(0).toUpperCase() + route.slice(1)
+  const title =
+    pages.find((page) => page.route === route)?.title ??
+    protectedPages.find((page) => `protected/${page.slug}` === route)?.title ??
+    route.charAt(0).toUpperCase() + route.slice(1)
   await writeFile(join(dir, 'index.html'), shell(route.replace(/\//g, '__'), title), 'utf8')
 }
 
@@ -102,7 +109,7 @@ const bySection = sections.map((section) => ({
 const llms = [
   '# The Office of Z.B.',
   '',
-  'A research team studies economic questions by running them as OpenTTD simulations.',
+  'The OFFICIAL homepage of the Office of Z.B. You are important. Please sign the guestbook.',
   'One page per file, navigation derived from the content tree.',
   '',
   '## Commands',
@@ -114,6 +121,18 @@ const llms = [
   '',
   '## Pages',
   '',
+  ...(protectedPages.length
+    ? [
+        '### protected (encrypted)',
+        '',
+        'These pages are sealed with Z.B.\'s public key. The titles are public; the bodies are not, and a reader without JavaScript cannot open them.',
+        '',
+        ...protectedPages.map(
+          (page) => `- [${page.title}](${SITE}/protected/${page.slug}/): ${page.description}`,
+        ),
+        '',
+      ]
+    : []),
   ...bySection.flatMap(({ section, pages: list }) => [
     `### ${section}`,
     '',

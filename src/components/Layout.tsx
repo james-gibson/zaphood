@@ -38,6 +38,7 @@ export function Layout({ path, children }: { path: string; children: ReactNode }
             | <a href={href(`/${section.id}`)}>{section.label.toUpperCase()}</a>
           </span>
         ))}
+        {' '}| <a href={href('/protected')}>PROTECTED 🔒</a>
         {' '}| <a href={href('/guestbook/entries')}>SIGN MY GUESTBOOK</a>
       </nav>
 

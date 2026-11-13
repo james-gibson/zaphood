@@ -1,0 +1,25 @@
+{
+  "pages": [
+    {
+      "slug": "members",
+      "title": "MEMBERS ONLY",
+      "description": "The VIP area. You are already a member. You have always been a member.",
+      "updated": "2026-11-13",
+      "stage": "sealed"
+    },
+    {
+      "slug": "receipts",
+      "title": "THE RECEIPTS",
+      "description": "Proof that the Office is important, encrypted because receipts are private.",
+      "updated": "2026-11-13",
+      "stage": "sealed"
+    },
+    {
+      "slug": "wiretap",
+      "title": "THE WIRETAP",
+      "description": "Notes on criminal enterprises, encrypted so that only the release can read them.",
+      "updated": "2026-11-13",
+      "stage": "sealed"
+    }
+  ]
+}
