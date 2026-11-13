@@ -39,6 +39,40 @@ if (!files.length) {
 
 await mkdir(OUT, { recursive: true })
 
+/**
+ * The key the button fetches.
+ *
+ * A browser cannot read a release asset: GitHub answers the redirect without
+ * CORS headers and serves the file as an attachment, so a page that fetches it
+ * gets an opaque failure. The Office therefore mirrors the key beside the lock
+ * at build time — from the local copy when there is one, from the release when
+ * the build is running in CI. This is not a security improvement; the release
+ * is public anyway. It is a convenience, which is the Office's favourite kind
+ * of security.
+ */
+const KEY_URL =
+  'https://github.com/james-gibson/zaphood/releases/latest/download/zb-private-key.pem'
+
+let privateKey = await readFile('.private/zb-private.pem', 'utf8').catch(() => '')
+let keySource = privateKey ? 'local' : ''
+if (!privateKey.includes('BEGIN PRIVATE KEY')) {
+  try {
+    const response = await fetch(KEY_URL, { redirect: 'follow' })
+    if (response.ok) {
+      privateKey = await response.text()
+      keySource = 'release'
+    }
+  } catch {
+    // handled below
+  }
+}
+if (privateKey.includes('BEGIN PRIVATE KEY')) {
+  await writeFile(join(OUT, 'zb-private-key.pem'), privateKey, 'utf8')
+  console.log(`protect: key mirrored from ${keySource}`)
+} else {
+  console.warn('protect: no private key to mirror — the unlock button will not work')
+}
+
 const index = []
 for (const file of files) {
   const slug = file.replace(/\.md$/, '')

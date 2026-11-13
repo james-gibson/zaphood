@@ -73,18 +73,42 @@ export function ProtectedPage({ page }: { page: ProtectedMeta }) {
     }
   }, [page.slug])
 
-  const unlock = async () => {
+  const unlock = async (key = pem) => {
     if (!payload) return
     setBusy(true)
     setError('')
     try {
-      const text = await decrypt(payload, pem)
+      const text = await decrypt(payload, key)
       setBody(text)
     } catch {
       setError(
         'That did not decrypt. Either it is not the key, or it is the key and the page is not for you. The Office cannot tell the difference.',
       )
     } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * Fetch the Office's copy of the key and open the page in one click.
+   *
+   * The release itself cannot be fetched from a page — GitHub serves it as an
+   * attachment with no CORS headers — so the build mirrors the key next to the
+   * ciphertext and this button reads that copy instead.
+   */
+  const grab = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      const response = await fetch(href('/protected/zb-private-key.pem'))
+      if (!response.ok) throw new Error(String(response.status))
+      const text = await response.text()
+      setPem(text)
+      await unlock(text)
+    } catch {
+      setError(
+        'The Office could not reach its own copy of the key. Use the release link below and paste it by hand. This is the part of the tutorial where you copy a file.',
+      )
       setBusy(false)
     }
   }
@@ -145,14 +169,24 @@ export function ProtectedPage({ page }: { page: ProtectedMeta }) {
               className="w-full border border-current bg-black/40 p-2 font-mono text-xs"
             />
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={unlock} disabled={busy || !pem.trim() || !payload}>
-                {busy ? 'UNSEALING…' : 'UNSEAL'}
+              <Button onClick={grab} disabled={busy || !payload}>
+                {busy ? 'GRABBING…' : 'GRAB THE KEY & UNSEAL'}
               </Button>
-              <a href={RELEASE}>GET THE KEY FROM THE RELEASE</a>
-              <a href={KEY_URL} className="text-xs">
-                (direct download)
-              </a>
+              <Button variant="outline" onClick={() => unlock()} disabled={busy || !pem.trim() || !payload}>
+                {busy ? 'UNSEALING…' : 'UNSEAL THE PASTED KEY'}
+              </Button>
             </div>
+            <p className="text-xs">
+              The button reads the Office&rsquo;s copy of the key at{' '}
+              <code>/protected/zb-private-key.pem</code>. GitHub serves a release as a download and
+              will not let a page read it, so the build mirrors the key beside the ciphertext. The
+              release is still private because it is called a release.
+            </p>
+            <p className="text-xs">
+              <a href={RELEASE}>The release</a> ·{' '}
+              <a href={KEY_URL}>the original download</a> (for operating systems that import
+              certificates; this is a key, so they will not)
+            </p>
             {error && <p className="text-sm">{error}</p>}
             <p className="text-xs">
               The key stays in this tab. Nothing is sent anywhere. The Office would not know how.

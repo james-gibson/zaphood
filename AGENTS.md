@@ -23,6 +23,10 @@ with no reason.
   `scripts/protect.mjs` seals the bodies into `dist/protected/<slug>.json`.
 - The build encrypts with `keys/zb-public.pem`. Decryption happens only in the browser, with the
   private key from the release. There is no server-side decrypt path, by definition.
+- `scripts/protect.mjs` mirrors the private key to `dist/protected/zb-private-key.pem` so the
+  button can fetch it: a browser cannot read a release asset (no CORS headers, served as an
+  attachment). Locally it copies `.private/zb-private.pem`; in CI it fetches the release. Every
+  release must carry `zb-private-key.pem` or the CI build fails the guard.
 - `scripts/verify-publish.mjs` fails if a protected body line appears anywhere in `dist/`, or if the
   manifest and the plaintext disagree. Do not weaken that check.
 

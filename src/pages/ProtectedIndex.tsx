@@ -50,9 +50,11 @@ export function ProtectedIndex() {
             . The release is private because it is called a release.
           </p>
           <p className="text-sm">
-            Download <code>zb-private-key.pem</code>, open a protected page, and paste it into the
-            box. The key never leaves your browser; the page is decrypted in memory and forgotten
-            when you close the tab.
+            Open a protected page and press <strong>GRAB THE KEY &amp; UNSEAL</strong>. The page
+            fetches the Office&rsquo;s copy of the key at <code>/protected/zb-private-key.pem</code>{' '}
+            and opens the ciphertext in memory. GitHub will not let a page read a release, so the
+            build mirrors the key beside the lock. You can still download the original from the
+            release and paste it by hand; the key never leaves your browser either way.
           </p>
           <p className="text-sm">
             If you are reading this without JavaScript, you cannot read the pages. That is the

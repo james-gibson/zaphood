@@ -126,6 +126,18 @@ if (manifestSlugs.join() !== sourceSlugs.join()) {
 if (!(await readText('keys/zb-public.pem')).includes('BEGIN PUBLIC KEY')) {
   fail('protected', 'keys/zb-public.pem is missing')
 }
+const mirroredKey = await readText(join(DIST, 'protected', 'zb-private-key.pem'))
+if (!mirroredKey.includes('BEGIN PRIVATE KEY')) {
+  fail('protected', 'dist/protected/zb-private-key.pem is missing — the unlock button will not work')
+} else {
+  const { createPrivateKey, createPublicKey } = await import('node:crypto')
+  const derived = createPublicKey(createPrivateKey(mirroredKey))
+    .export({ type: 'spki', format: 'pem' })
+    .trim()
+  if (derived !== (await readText('keys/zb-public.pem')).trim()) {
+    fail('protected', 'the mirrored key does not match keys/zb-public.pem')
+  }
+}
 for (const page of protectedPages) {
   const source = await readText(join(privateDir, `${page.slug}.md`))
   const title = /^title:\s*(.+)$/m.exec(source)?.[1]?.trim().replace(/^["']|["']$/g, '')
