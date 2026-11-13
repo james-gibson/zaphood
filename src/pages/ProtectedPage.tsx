@@ -17,8 +17,8 @@ type Payload = {
   bytes: number
 }
 
+const PASSWORD = '42'
 const RELEASE = 'https://github.com/james-gibson/zaphood/releases/latest'
-const KEY_URL = 'https://github.com/james-gibson/zaphood/releases/latest/download/zb-private-key.pem'
 
 const toBuffer = (value: string): ArrayBuffer => {
   const binary = atob(value)
@@ -34,8 +34,9 @@ const pemToBuffer = (pem: string) =>
  * Unwrap the AES key with the RSA private key, then open the body.
  *
  * The public key did the sealing at build time. Only the private key — which the
- * Office publishes in the release — can unwrap it. This is real cryptography in
- * the service of a joke, which is the only kind the Office can afford.
+ * Office publishes in the release and mirrors beside the lock — can unwrap it.
+ * This is real cryptography in the service of a joke, which is the only kind the
+ * Office can afford.
  */
 async function decrypt(payload: Payload, pem: string) {
   const key = await crypto.subtle.importKey(
@@ -58,6 +59,8 @@ async function decrypt(payload: Payload, pem: string) {
 export function ProtectedPage({ page }: { page: ProtectedMeta }) {
   const [payload, setPayload] = useState<Payload | null>(null)
   const [pem, setPem] = useState('')
+  const [keyState, setKeyState] = useState<'loading' | 'ready' | 'missing'>('loading')
+  const [password, setPassword] = useState('')
   const [body, setBody] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -73,44 +76,56 @@ export function ProtectedPage({ page }: { page: ProtectedMeta }) {
     }
   }, [page.slug])
 
-  const unlock = async (key = pem) => {
-    if (!payload) return
+  /**
+   * The key loads itself. It is kept in component state — not in the DOM, not in
+   * localStorage — so a reload forgets it and the password is the only thing
+   * standing between a reader and the page.
+   */
+  useEffect(() => {
+    let live = true
+    fetch(href('/protected/zb-private-key.pem'))
+      .then((response) => (response.ok ? response.text() : Promise.reject(new Error(String(response.status)))))
+      .then((text) => {
+        if (!live) return
+        setPem(text)
+        setKeyState(text.includes('BEGIN PRIVATE KEY') ? 'ready' : 'missing')
+      })
+      .catch(() => live && setKeyState('missing'))
+    return () => {
+      live = false
+    }
+  }, [])
+
+  const unlock = async () => {
+    if (password.trim() !== PASSWORD) {
+      setError('That is not 42.')
+      return
+    }
+    if (!payload) {
+      setError('The ciphertext is still arriving. Try 42 again in a moment.')
+      return
+    }
+    if (!pem) {
+      setError('The key did not arrive. The lock is decorative, but it is not that decorative.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
-      const text = await decrypt(payload, key)
-      setBody(text)
+      setBody(await decrypt(payload, pem))
     } catch {
       setError(
-        'That did not decrypt. Either it is not the key, or it is the key and the page is not for you. The Office cannot tell the difference.',
+        'The key is loaded and the password is 42, so the ciphertext must be wrong. The Office has never seen this before.',
       )
     } finally {
       setBusy(false)
     }
   }
 
-  /**
-   * Fetch the Office's copy of the key and open the page in one click.
-   *
-   * The release itself cannot be fetched from a page — GitHub serves it as an
-   * attachment with no CORS headers — so the build mirrors the key next to the
-   * ciphertext and this button reads that copy instead.
-   */
-  const grab = async () => {
-    setBusy(true)
+  const lock = () => {
+    setBody('')
+    setPassword('')
     setError('')
-    try {
-      const response = await fetch(href('/protected/zb-private-key.pem'))
-      if (!response.ok) throw new Error(String(response.status))
-      const text = await response.text()
-      setPem(text)
-      await unlock(text)
-    } catch {
-      setError(
-        'The Office could not reach its own copy of the key. Use the release link below and paste it by hand. This is the part of the tutorial where you copy a file.',
-      )
-      setBusy(false)
-    }
   }
 
   return (
@@ -134,7 +149,7 @@ export function ProtectedPage({ page }: { page: ProtectedMeta }) {
             </CardContent>
           </Card>
           <p className="text-center">
-            <Button variant="outline" onClick={() => setBody('')}>
+            <Button variant="outline" onClick={lock}>
               LOCK IT AGAIN
             </Button>
           </p>
@@ -146,50 +161,57 @@ export function ProtectedPage({ page }: { page: ProtectedMeta }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p>
-              The body below is ciphertext. It was sealed with Z.B.&rsquo;s public key, so the site
-              can ship it and still not read it. Only the matching key opens it, and only in a
-              browser running JavaScript.
+              The body is ciphertext. It was sealed with Z.B.&rsquo;s public key, so the site can
+              ship it and still not read it. The key loads itself into memory; the password is the
+              entire access control.
             </p>
             <p className="text-sm">
               {payload
                 ? `${payload.alg} · ${payload.bytes} bytes of ciphertext`
-                : 'fetching the ciphertext…'}
+                : 'fetching the ciphertext…'}{' '}
+              ·{' '}
+              {keyState === 'ready'
+                ? 'key loaded'
+                : keyState === 'missing'
+                  ? 'key unavailable'
+                  : 'loading key…'}
             </p>
 
-            <label className="block text-sm" htmlFor="key">
-              PASTE THE KEY FROM THE RELEASE
-            </label>
-            <textarea
-              id="key"
-              value={pem}
-              onChange={(event) => setPem(event.target.value)}
-              rows={6}
-              spellCheck={false}
-              placeholder="-----BEGIN PRIVATE KEY-----"
-              className="w-full border border-current bg-black/40 p-2 font-mono text-xs"
-            />
-            <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={grab} disabled={busy || !payload}>
-                {busy ? 'GRABBING…' : 'GRAB THE KEY & UNSEAL'}
+            <form
+              className="flex flex-wrap items-end gap-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void unlock()
+              }}
+            >
+              <div>
+                <label className="block text-sm" htmlFor="password">
+                  PASSWORD
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value)
+                    setError('')
+                  }}
+                  className="mt-1 w-32 border border-current bg-black/40 p-2 font-mono text-sm"
+                />
+              </div>
+              <Button type="submit" disabled={busy}>
+                {busy ? 'UNSEALING…' : 'UNLOCK'}
               </Button>
-              <Button variant="outline" onClick={() => unlock()} disabled={busy || !pem.trim() || !payload}>
-                {busy ? 'UNSEALING…' : 'UNSEAL THE PASTED KEY'}
-              </Button>
-            </div>
-            <p className="text-xs">
-              The button reads the Office&rsquo;s copy of the key at{' '}
-              <code>/protected/zb-private-key.pem</code>. GitHub serves a release as a download and
-              will not let a page read it, so the build mirrors the key beside the ciphertext. The
-              release is still private because it is called a release.
-            </p>
-            <p className="text-xs">
-              <a href={RELEASE}>The release</a> ·{' '}
-              <a href={KEY_URL}>the original download</a> (for operating systems that import
-              certificates; this is a key, so they will not)
-            </p>
+            </form>
+
             {error && <p className="text-sm">{error}</p>}
             <p className="text-xs">
-              The key stays in this tab. Nothing is sent anywhere. The Office would not know how.
+              The lock is decorative. The password is 42. The key is fetched from{' '}
+              <code>/protected/zb-private-key.pem</code>, which the build mirrors from the{' '}
+              <a href={RELEASE}>release</a>. This is the same security model as a diary labelled
+              &ldquo;diary&rdquo;, with a lock drawn on it.
             </p>
           </CardContent>
         </Card>

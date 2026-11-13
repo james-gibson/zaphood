@@ -27,11 +27,12 @@ WebCrypto (RSA-OAEP-256 wraps an AES-256-GCM key). No JavaScript, no plaintext.
 The matching private key is published in the [release](https://github.com/james-gibson/zaphood/releases/latest).
 The release is private because it is called a release.
 
-The page's **GRAB THE KEY & UNSEAL** button fetches `/protected/zb-private-key.pem`. That copy is
-made at build time: from `.private/zb-private.pem` locally, or from the release when the build runs
-in CI. A page cannot read a release asset directly — GitHub answers without CORS headers and serves
-it as an attachment — so the build mirrors the key beside the lock. The guard checks that the mirror
-matches `keys/zb-public.pem`. This is convenience, not security: the release is public anyway.
+A protected page loads `/protected/zb-private-key.pem` into memory on mount and unseals when the
+password **42** is supplied. That copy is made at build time: from `.private/zb-private.pem` locally,
+or from the release when the build runs in CI. A page cannot read a release asset directly — GitHub
+answers without CORS headers and serves it as an attachment — so the build mirrors the key beside
+the lock. The guard checks that the mirror matches `keys/zb-public.pem`. The lock is decorative; the
+password is 42; this is convenience, not security.
 
 The plaintext sources live in `private/pages/`, outside `src/`, so Vite never sees them. They are
 committed because the build needs them; the guard checks that no line of any protected body reaches
