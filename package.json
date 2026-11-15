@@ -8,12 +8,15 @@
   "license": "AGPL-3.0-only",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/protected-manifest.mjs && tsc --noEmit && vite build && vite build --ssr scripts/prerender.tsx --outDir .prerender --emptyOutDir && node .prerender/prerender.js && node scripts/postbuild.mjs && node scripts/protect.mjs && node scripts/verify-publish.mjs",
+    "build": "node scripts/protected-manifest.mjs && tsc --noEmit && vite build && vite build --ssr scripts/prerender.tsx --outDir .prerender --emptyOutDir && node .prerender/prerender.js && node scripts/postbuild.mjs && node scripts/protect.mjs && node scripts/overflow.mjs && node scripts/verify-publish.mjs",
     "preview": "vite preview",
     "guard": "node scripts/verify-publish.mjs",
     "sync": "node scripts/sync-upstream.mjs",
     "manifest": "node scripts/protected-manifest.mjs",
-    "protect": "node scripts/protect.mjs"
+    "protect": "node scripts/protect.mjs",
+    "rules": "node scripts/sync-upstream.mjs --check",
+    "rotation": "node scripts/rotation.mjs",
+    "overflow": "node scripts/overflow.mjs"
   },
   "dependencies": {
     "@fontsource-variable/nunito": "^5.2.8",

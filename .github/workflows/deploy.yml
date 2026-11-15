@@ -24,6 +24,11 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      # The seed manages its updates from its own rotation record (gap, unclosed
+      # cycle, or a rung of DEGRADED or worse refuses), and follows the parent's
+      # tightened rules on this cycle rather than whenever someone remembers.
+      - run: npm run rotation -- gate
+      - run: npm run rules
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

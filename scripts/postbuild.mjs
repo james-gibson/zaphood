@@ -6,6 +6,8 @@
 import { access, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 
+import { readState } from './rotation-state.mjs'
+
 const SITE = 'https://james-gibson.github.io/zaphood'
 const DIST = 'dist'
 const CONTENT = 'src/content'
@@ -139,6 +141,11 @@ const llms = [
     ...list.map((page) => `- [${page.title}](${SITE}/${page.route}/): ${page.description}`),
     '',
   ]),
+  '## Machine files',
+  '',
+  `- [rules.md](${SITE}/rules.md): the rules this child follows, and its override`,
+  `- [rotations.json](${SITE}/rotations.json): this seed's own rotation record — state, head, distance`,
+  '',
   '## Invariants',
   '',
   '- The path is the URL.',
@@ -161,6 +168,12 @@ if (upstream) {
     'utf8',
   )
 }
+
+// --- rotations.json: the seed's own record, published so it is checkable --
+// RULES-06: a claim that the site does X must be checkable at the URL. "This
+// seed follows its own rotation record" is a claim, so the record is served.
+const rotationState = readState()
+await writeFile(join(DIST, 'rotations.json'), `${JSON.stringify(rotationState, null, 2)}\n`, 'utf8')
 
 await rm(PRERENDER, { recursive: true, force: true })
 console.log(`postbuild: ${routes.length} shells, 404, sitemap, robots, llms.txt (${pages.length} pages)`)

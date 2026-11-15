@@ -1,6 +1,6 @@
 # le.gume rules
 
-version: 1f31217
+version: 29d863e
 source: https://james-gibson.github.io/le.gume/rules.md
 
 A child seed defers to this list until it records a local override.

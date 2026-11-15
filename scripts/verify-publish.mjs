@@ -6,6 +6,8 @@
 import { access, readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 
+import { readState } from './rotation-state.mjs'
+
 const DIST = 'dist'
 const failures = []
 const notes = []
@@ -169,7 +171,29 @@ for (const file of privateFiles) {
   }
 }
 
-// 8. size sanity
+// 8. the rotation record is served, and it is the ledger's state
+// The seed decides its updates from `upstream/rotations.jsonl`. Publishing that
+// decision is what makes "this seed manages its own updates" checkable rather
+// than asserted, and comparing it here means the page and the ledger cannot
+// disagree about the rung.
+const ledger = readState()
+const published = JSON.parse((await readText(join(DIST, 'rotations.json'))) || 'null')
+if (!published) {
+  fail('rotation', 'dist/rotations.json is not published — the build did not copy the record')
+} else {
+  if (published.state !== ledger.state) {
+    fail('rotation', `the site publishes ${published.state} while the ledger derives ${ledger.state}`)
+  }
+  if ((published.head ?? null) !== (ledger.head ?? null)) {
+    fail('rotation', `the site publishes head ${published.head ?? 'none'} while the ledger is at ${ledger.head ?? 'none'}`)
+  }
+  if (published.rotations !== ledger.rotations) {
+    fail('rotation', `the site publishes ${published.rotations} rotation(s) while the ledger holds ${ledger.rotations}`)
+  }
+  if (ledger.gaps.length) fail('rotation', `the id sequence has a gap: ${ledger.gaps.join(', ')}`)
+}
+
+// 9. size sanity
 const total = (await Promise.all(files.map(async (file) => (await stat(file)).size))).reduce((a, b) => a + b, 0)
 if (total > 8 * 1024 * 1024) fail('size', `dist/ is ${(total / 1024 / 1024).toFixed(1)}MB, over 8MB`)
 notes.push(`${rel.length} files, ${(total / 1024).toFixed(0)}KB total`)
